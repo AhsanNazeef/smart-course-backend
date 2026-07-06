@@ -1,8 +1,8 @@
-# SmartCourse - Intelligent Course Delivery Platform
+﻿# SmartCourse - Intelligent Course Delivery Platform
 
 An intelligent, large-scale learning platform designed to support modern digital education for universities, enterprises, and training academies.
 
-## 🚀 Features
+## Features
 
 - **Robust Course Management**: Create, structure, and publish courses efficiently
 - **Intelligent Learning Experience**: AI-powered contextual Q&A and content enhancement
@@ -10,13 +10,13 @@ An intelligent, large-scale learning platform designed to support modern digital
 - **Real-time Analytics**: Comprehensive metrics and monitoring
 - **Enterprise-Grade**: Support for 10,000+ concurrent learners
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Docker and Docker Compose
 - Python 3.11+
 - Git
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend
 - **Framework**: FastAPI
@@ -39,32 +39,32 @@ An intelligent, large-scale learning platform designed to support modern digital
 - **Tracing**: Jaeger
 - **Instrumentation**: OpenTelemetry
 
-## 🏗️ Project Structure
+## Project Structure
 
-```
+```text
 smartcourse/
-├── services/
-│   ├── course_service/          # Course management
-│   ├── user_service/            # User authentication & management
-│   ├── enrollment_service/      # Enrollment & progress tracking
-│   ├── analytics_service/       # Metrics & reporting
-│   └── ai_service/              # AI assistant & content generation
-├── shared/
-│   ├── models/                  # Database models
-│   ├── schemas/                 # Pydantic schemas
-│   ├── utils/                   # Shared utilities
-│   └── config/                  # Configuration management
-├── workflows/                   # Temporal workflows
-├── tests/                       # Test suite
-├── docker/                      # Docker configurations
-├── alembic/                     # Database migrations
-├── main.py                      # FastAPI application entry point
-├── docker-compose.yml          # Development environment
-├── pyproject.toml              # Python project configuration
-└── requirements.txt            # Python dependencies
+|-- services/
+|   |-- course_service/          # Course management
+|   |-- user_service/            # User authentication & management
+|   |-- enrollment_service/      # Enrollment & progress tracking
+|   |-- analytics_service/       # Metrics & reporting
+|   `-- ai_service/              # AI assistant & content generation
+|-- shared/
+|   |-- models/                  # Database models
+|   |-- schemas/                 # Pydantic schemas
+|   |-- utils/                   # Shared utilities
+|   `-- config/                  # Configuration management
+|-- workflows/                   # Temporal workflows
+|-- tests/                       # Test suite
+|-- docker/                      # Docker configurations
+|-- alembic/                     # Database migrations
+|-- main.py                      # FastAPI application entry point
+|-- docker-compose.yml           # Development environment
+|-- pyproject.toml               # Python project configuration
+`-- requirements.txt             # Python dependencies
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 
@@ -80,6 +80,8 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
+Application settings use the `SMARTCOURSE_` environment variable prefix.
+
 ### 3. Start Infrastructure Services
 
 ```bash
@@ -91,7 +93,8 @@ This will start:
 - Redis (port 6379)
 - RabbitMQ (ports 5672, 15672)
 - Kafka (ports 9092, 29092)
-- Temporal (port 7233)
+- Temporal (ports 7233, 8233)
+- Temporal UI (port 8088)
 - Qdrant (port 6333)
 - Prometheus (port 9090)
 - Grafana (port 3000)
@@ -115,14 +118,14 @@ alembic upgrade head
 python main.py
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:8000`.
 
 ### 7. Access API Documentation
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
@@ -135,7 +138,7 @@ pytest tests/ -v --cov
 pytest tests/test_specific.py -v
 ```
 
-## 📊 Monitoring & Observability
+## Monitoring & Observability
 
 ### Grafana Dashboard
 - URL: `http://localhost:3000`
@@ -154,7 +157,7 @@ pytest tests/test_specific.py -v
 - URL: `http://localhost:15672`
 - Default credentials: `smartcourse` / `smartcourse_password`
 
-## 🔧 Development Commands
+## Development Commands
 
 ```bash
 # Start all services
@@ -191,10 +194,11 @@ ruff check .
 mypy shared/ services/
 ```
 
-## 📝 API Endpoints
+## API Endpoints
 
 ### Health Check
 - `GET /health` - Health check endpoint
+- `GET /metrics` - Prometheus metrics endpoint
 
 ### API v1
 - `GET /api/v1` - API v1 root
@@ -216,7 +220,7 @@ mypy shared/ services/
 - `GET /api/v1/enrollments` - List enrollments
 - `GET /api/v1/enrollments/{id}` - Get enrollment details
 
-## 🔐 Security
+## Security
 
 - JWT-based authentication
 - Role-based access control (RBAC)
@@ -224,13 +228,13 @@ mypy shared/ services/
 - TLS for network communication
 - Rate limiting and abuse prevention
 
-## 📚 Documentation
+## Documentation
 
 - [Product Requirements Document](PRD.md)
 - [Agent Guidelines](AGENTS.md)
-- [Project Requirements](porject-requirements.md)
+- [Project Requirements](project-requirements.md)
 
-## 🤝 Contributing
+## Contributing
 
 1. Create a feature branch
 2. Make your changes
@@ -238,15 +242,15 @@ mypy shared/ services/
 4. Ensure all tests pass
 5. Submit a pull request
 
-## 📄 License
+## License
 
 [Your License Here]
 
-## 👥 Team
+## Team
 
 SmartCourse Development Team
 
-## 📞 Support
+## Support
 
 For issues and questions, please contact the development team.
 
