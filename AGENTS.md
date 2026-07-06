@@ -1,7 +1,7 @@
 # SmartCourse — Agent Guidelines
 
-**Version:** 1.0  
-**Date:** July 1, 2026  
+**Version:** 1.1  
+**Date:** July 6, 2026  
 **Project:** SmartCourse - Intelligent Course Delivery Platform
 
 ---
@@ -18,7 +18,7 @@ SmartCourse is an intelligent, large-scale learning platform for universities, e
 ## Quick Reference
 
 ### Key Documents
-- **Project Requirements:** `porject-requirements.md` - Original project specification
+- **Project Requirements:** `project-requirements.md` - Original project specification
 - **PRD:** `PRD.md` - Detailed Product Requirements Document
 - **AGENTS.md:** This file - Agent working guidelines
 
@@ -502,6 +502,55 @@ uvicorn services.api.main:app --reload
 
 ---
 
+## Learning-First Development Workflow
+
+This project is being built as both a production-quality backend system and a guided learning track. Agents must treat every meaningful change as a small engineering lesson, not just a code delivery.
+
+### Step-by-Step Delivery
+- Build in small, reviewable vertical slices instead of large hidden rewrites.
+- Before substantial edits, briefly explain the immediate goal and the files or concepts involved.
+- After implementation, summarize what changed, why it was added, how it fits the SmartCourse architecture, and how to verify it locally.
+- Prefer one complete, working slice over several half-finished layers.
+- Keep each step aligned with the PRD, existing architecture, and senior engineering practices.
+
+### Explain What Was Added
+For every new feature, service, workflow, database model, migration, queue, event, AI component, or observability component, include:
+
+1. **What was added** - the concrete files, endpoints, models, services, or infrastructure.
+2. **Why it was added** - the product or architecture requirement it supports.
+3. **How it works** - the key flow in plain language before diving into details.
+4. **How to run or test it** - commands, URLs, or expected outputs.
+5. **What to study next** - focused links to official documentation or high-quality references for the exact technologies used.
+
+### Study Links Requirement
+- Provide study links whenever introducing or materially changing a technology such as FastAPI, SQLAlchemy, Alembic, PostgreSQL, Redis, RabbitMQ, Kafka, Temporal, Celery, LangGraph, OpenAI/Groq/Anthropic integration, Qdrant, Prometheus, Grafana, Jaeger, OpenTelemetry, Docker, or Docker Compose.
+- Prefer official documentation first, then reputable tutorials only when official docs are too reference-heavy for the current learning step.
+- Keep links focused: include only the resources relevant to the current change instead of dumping the entire stack every time.
+- When a concept is advanced, include a short glossary of the important terms used in that change.
+
+### Baseline Official Study Resources
+- FastAPI: https://fastapi.tiangolo.com/
+- SQLAlchemy asyncio: https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html
+- Alembic migrations: https://alembic.sqlalchemy.org/en/latest/
+- PostgreSQL: https://www.postgresql.org/docs/
+- Docker Compose: https://docs.docker.com/compose/
+- Temporal Python SDK: https://docs.temporal.io/develop/python
+- Kafka: https://kafka.apache.org/documentation/
+- Redis: https://redis.io/docs/latest/
+- RabbitMQ tutorials: https://www.rabbitmq.com/tutorials
+- LangGraph: https://docs.langchain.com/oss/python/langgraph/overview
+- Prometheus: https://prometheus.io/docs/prometheus/latest/getting_started/
+- OpenTelemetry Python: https://opentelemetry.io/docs/languages/python/
+
+### Senior Engineering Expectations
+- Explain tradeoffs, not only the chosen solution.
+- Call out risks, missing production hardening, and follow-up work honestly.
+- Add tests, migrations, observability, idempotency, and error handling when the scope requires them.
+- Avoid premature complexity; introduce distributed systems tools only when the current step needs them or when the PRD milestone calls for them.
+- Document important architecture decisions as ADRs when they affect long-term direction.
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Workflow Failures
@@ -600,5 +649,5 @@ For questions or issues related to this project:
 
 ---
 
-**Last Updated:** July 1, 2026  
+**Last Updated:** July 6, 2026  
 **Maintained by:** SmartCourse Development Team
