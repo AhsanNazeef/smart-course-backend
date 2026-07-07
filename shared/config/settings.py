@@ -1,6 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import ValidationError
 from typing import List, Optional
 from functools import lru_cache
+import sys
 
 
 class Settings(BaseSettings):
@@ -92,7 +94,41 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    try:
+        return Settings()
+    except ValidationError as exc:
+        _print_friendly_settings_error(exc)
+        raise SystemExit(1)
+
+
+def _print_friendly_settings_error(exc: ValidationError) -> None:
+    """Turn a Pydantic ValidationError into a readable config message."""
+    missing = [
+        str(err["loc"][0])
+        for err in exc.errors()
+        if err["type"] == "missing"
+    ]
+    lines = [
+        "",
+        "=" * 64,
+        "  CONFIGURATION ERROR - SmartCourse cannot start",
+        "=" * 64,
+    ]
+    if missing:
+        lines.append("  Missing required environment variables:")
+        for field in missing:
+            lines.append(f"    - SMARTCOURSE_{field}")
+        lines.append("")
+        lines.append("  Fix it:")
+        lines.append("    1. Copy the template:   cp .env.example .env")
+        lines.append("    2. Fill in the values above in your new .env file")
+    else:
+        lines.append("  Some settings are invalid:")
+        for err in exc.errors():
+            field = ".".join(str(p) for p in err["loc"])
+            lines.append(f"    - SMARTCOURSE_{field}: {err['msg']}")
+    lines.append("=" * 64)
+    print("\n".join(lines), file=sys.stderr)
 
 
 settings = get_settings()
