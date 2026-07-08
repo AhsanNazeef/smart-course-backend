@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, Enum as SQLEnum, DateTime, Boolean, func
+from sqlalchemy import Column, String, Integer, ForeignKey, Enum as SQLEnum, DateTime, Boolean, func, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
 from shared.models.base import BaseModel
@@ -14,6 +14,11 @@ class EnrollmentStatus(str, enum.Enum):
 class Enrollment(BaseModel):
     """Enrollment model for student-course relationships"""
     __tablename__ = "enrollments"
+    __table_args__ = (
+        # A student can only have one enrollment row per course.
+        # (Re-enrollment after dropping is handled at the service layer later.)
+        UniqueConstraint("student_id", "course_id", name="uq_enrollment_student_course"),
+    )
 
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
@@ -33,6 +38,11 @@ class Enrollment(BaseModel):
 class Progress(BaseModel):
     """Progress model for tracking student learning progress"""
     __tablename__ = "progress"
+    __table_args__ = (
+        # One progress record per lesson per enrollment.
+        # This makes "mark lesson complete" idempotent (Day 11).
+        UniqueConstraint("enrollment_id", "lesson_id", name="uq_progress_enrollment_lesson"),
+    )
 
     enrollment_id = Column(Integer, ForeignKey("enrollments.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
