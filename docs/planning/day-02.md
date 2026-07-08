@@ -198,13 +198,13 @@ You should see 6 green `PASSED` lines.
 
 ### The problem
 
-Your [shared/config/settings.py](shared/config/settings.py) has ~10 **required** variables (no default): `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `KAFKA_BOOTSTRAP_SERVERS`, `SECRET_KEY`, etc.
+Your [shared/config/settings.py](../../shared/config/settings.py) has ~10 **required** variables (no default): `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `KAFKA_BOOTSTRAP_SERVERS`, `SECRET_KEY`, etc.
 
 If one is missing, Python currently throws a wall of Pydantic traceback that a beginner can't parse. Today you turn that into a clear message.
 
 ### The fix
 
-Open [shared/config/settings.py](shared/config/settings.py). At the bottom, replace the `get_settings()` function with this version:
+Open [shared/config/settings.py](../../shared/config/settings.py). At the bottom, replace the `get_settings()` function with this version:
 
 ```python
 import sys

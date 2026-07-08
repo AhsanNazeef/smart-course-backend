@@ -230,9 +230,14 @@ mypy shared/ services/
 
 ## Documentation
 
-- [Product Requirements Document](PRD.md)
+Full documentation lives in [docs/](docs/README.md). Highlights:
+
+- [Documentation Index](docs/README.md)
+- [Product Requirements Document](docs/product/prd.md)
+- [Project Requirements](docs/product/requirements.md)
+- [Implementation Roadmap (2-month plan)](docs/planning/roadmap.md)
+- [Configuration Reference](docs/reference/configuration.md)
 - [Agent Guidelines](AGENTS.md)
-- [Project Requirements](project-requirements.md)
 
 ## Contributing
 
