@@ -29,6 +29,7 @@ Beginner-friendly, file-by-file walkthroughs of what was built each day.
 |-----|-------------|
 | [guides/day-01-file-by-file.md](guides/day-01-file-by-file.md) | Every Day 1 file explained (scaffold & infrastructure) |
 | [guides/day-02-file-by-file.md](guides/day-02-file-by-file.md) | Every Day 2 file explained (tests & config validation) |
+| [guides/day-03-file-by-file.md](guides/day-03-file-by-file.md) | Every Day 3 change explained (migrations & constraints) |
 
 ## 🔧 Reference
 
@@ -53,7 +54,8 @@ docs/
 │   └── day-02.md
 ├── guides/                # learning walkthroughs
 │   ├── day-01-file-by-file.md
-│   └── day-02-file-by-file.md
+│   ├── day-02-file-by-file.md
+│   └── day-03-file-by-file.md
 └── reference/             # operational reference
     └── configuration.md
 ```
