@@ -1,1514 +1,315 @@
-# SmartCourse 2-Month Implementation and Learning Plan
+# SmartCourse Microservices Implementation & Learning Plan
 
-**Start point:** SmartCourse has project docs, a FastAPI scaffold, settings, database models, Alembic setup, Docker Compose infrastructure, and Prometheus config.
+**Target architecture:** microservices in a monorepo, with a **database per service**
+(see [ADR-001](../architecture/adr-001-microservices-monorepo.md)). Each service is its own
+runnable FastAPI app that owns its own database and talks to others only through **Kafka
+events** (async) and **HTTP** (sync).
 
-**Month 1 goal:** Build a working backend MVP foundation while learning the technologies as they are introduced. The goal is to build the first clean, tested, explainable vertical slices using senior engineering habits.
+**Month 1 goal:** Extract the first services cleanly (User, then Course), stand up the
+**event backbone** that lets them communicate, and learn distributed-systems fundamentals
+by doing — one tested, explainable service at a time.
 
-**Month 2 goal:** Turn the MVP foundation into a more reliable enterprise-style learning platform: stronger workflows, real event processing, better AI behavior, observability, security, performance baselines, and production-oriented developer experience.
+**Month 2 goal:** Add the harder services (Enrollment, Analytics, AI), a gateway with
+cross-service auth, observability that spans service boundaries, per-service
+containerization/CI, and reliability + performance hardening.
+
+> **This plan supersedes the earlier monolith roadmap.** Days 1–4 bootstrapped the project
+> as a modular monolith; from here we migrate to microservices **incrementally**. The old
+> monolith day-plan is preserved in git history.
+
+---
+
+## Planning Approach: Rolling Wave
+
+We are early (Day 4). Rather than over-specifying 60 speculative days, this plan is:
+
+- **Detailed** for the near term (Phases 1–3 — the next ~3 weeks), day by day.
+- **Themed milestones** for later phases (4–10), fleshed out just-in-time as we learn.
+
+Expect later phases to be refined once we've felt the real shape of the first services.
+That's not vagueness — it's how experienced teams plan work with genuine unknowns.
 
 ---
 
 ## How To Use This Plan
 
-Each day should produce four things:
+Each working session should produce four things:
 
-1. **Implementation** - code, config, migration, test, or documentation.
-2. **Explanation** - what changed, why it exists, and how it fits the architecture.
-3. **Verification** - commands run, expected output, and known gaps.
-4. **Learning notes** - links and short notes for the technology used that day.
+1. **Implementation** — code, config, migration, test, or documentation.
+2. **Explanation** — what changed, why it exists, and how it fits the architecture.
+3. **Verification** — commands run, expected output, and known gaps.
+4. **Learning notes** — links and short notes for the technology used that day.
 
 Recommended daily rhythm:
 
-- 30-45 minutes: read the small set of docs for the day.
-- 2-3 hours: implement one focused slice.
-- 30-45 minutes: test, review, and write notes.
+- 30–45 minutes: read the small set of docs for the day.
+- 2–3 hours: implement one focused slice.
+- 30–45 minutes: test, review, and write notes.
 - End each day with a commit or a clearly documented reason not to commit yet.
 
-Senior engineering rule: prefer one complete, tested, understandable slice over five half-finished abstractions.
+**Senior engineering rule:** prefer one complete, tested, understandable slice over five
+half-finished abstractions.
 
 ---
 
-## Month 1 Outcomes
+## Microservices Ground Rules (read before every phase)
 
-By the end of this month, SmartCourse should have:
+These constraints define the architecture. Breaking one silently turns the system into a
+"distributed monolith" — the worst of both worlds.
 
-- A clean scaffold committed and pushed.
-- Working local infrastructure through Docker Compose.
-- Initial database migration for the core models.
-- User, course, module, lesson, enrollment, and progress API foundations.
-- Service and repository layers for core business logic.
-- Authentication and basic RBAC.
-- Transaction-safe enrollment behavior.
-- Basic event publishing shape.
-- A first background processing path.
-- A first Temporal workflow for course publishing.
-- A first AI/RAG prototype using Qdrant and LangGraph.
-- Prometheus metrics, structured logging, and basic tracing.
-- Tests around the most important paths.
-- Documentation and ADR notes explaining important decisions.
-
----
-
-## Month 2 Outcomes
-
-By the end of Month 2, SmartCourse should have:
-
-- More complete instructor, learner, and admin API behavior.
-- Hardened RBAC and authorization tests.
-- A real outbox processor and Kafka event consumers.
-- Course publishing workflow with failure recovery behavior.
-- Analytics read models and instructor/admin metrics.
-- AI assistant v1 with citations, streaming, fallback, and cost controls.
-- Redis caching for high-read course data.
-- Dockerized API service and improved local developer commands.
-- CI checks for linting, tests, and migrations.
-- Prometheus/Grafana dashboards and Jaeger traces for major flows.
-- Load/performance baseline and database indexing notes.
-- Month 2 review and Month 3 production/frontend roadmap.
+1. **A service only touches its own database.** Never query another service's tables.
+2. **No foreign keys across services.** An enrollment can't FK to `users` — those live in a
+   different database. Store the id you need and treat it as an opaque reference.
+3. **Get other services' data two ways only:** call their **API** (sync) or consume their
+   **events** (async, keeping a local read copy).
+4. **Events are contracts.** Once published, an event's shape is a promise. Version it;
+   don't break it.
+5. **Each service owns its migrations.** No shared Alembic history.
+6. **`shared/` is for cross-cutting code only** — event schemas, config base, utilities.
+   Never business-data models.
+7. **Design for failure.** Any network/API/event call can fail or arrive twice. Make
+   consumers idempotent and handle timeouts.
 
 ---
 
-## Week 1 - Backend Foundation, Database, and First APIs
+## Where We Are Now (Phase 0 — done)
 
-### Day 1 - Commit the Scaffold and Run the Project
+Days 1–4 delivered the bootstrap (as a monolith, intentionally):
 
-**Implement**
-- Review and commit current scaffold files.
-- Confirm `.env` is ignored and `.env.example` is safe.
-- Run `docker compose config -q`.
-- Run FastAPI locally and check `/health`, `/api/v1`, `/docs`, and `/metrics`.
+- ✅ Scaffold, Docker Compose infra, settings with friendly validation, test suite.
+- ✅ Initial schema + Alembic migration with enrollment/progress unique constraints.
+- ✅ User domain with `route → service → repository` layering and layer-isolated tests.
 
-**Learn**
-- What FastAPI is and why it is a good API framework.
-- What Docker Compose does for local development.
-- Why `.env` is private but `.env.example` is committed.
-
-**Verify**
-```bash
-python -m compileall -q main.py shared alembic
-python -c "from main import app; print([route.path for route in app.routes])"
-docker compose config -q
-```
-
-**Study**
-- FastAPI: https://fastapi.tiangolo.com/
-- Docker Compose: https://docs.docker.com/compose/
-
-**Done when**
-- Scaffold is committed.
-- App imports successfully.
-- Docker Compose validates.
-
-### Day 2 - Settings, Application Structure, and Health Checks
-
-**Implement**
-- Add a small test suite for app startup and health endpoints.
-- Make settings validation errors easy to understand.
-- Document all required `SMARTCOURSE_` environment variables.
-
-**Learn**
-- Pydantic settings.
-- Environment variable prefixes.
-- FastAPI app lifecycle.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- Pydantic settings: https://docs.pydantic.dev/latest/concepts/pydantic_settings/
-- FastAPI lifespan events: https://fastapi.tiangolo.com/advanced/events/
-
-**Done when**
-- Tests cover `/health` and `/api/v1`.
-- Missing config errors are understandable.
-
-### Day 3 - SQLAlchemy Models and Initial Alembic Migration
-
-**Implement**
-- Review all current SQLAlchemy models.
-- Add missing constraints that protect data consistency, especially enrollment uniqueness.
-- Generate the initial Alembic migration.
-- Review the migration before applying it.
-
-**Learn**
-- ORM models.
-- Relationships and foreign keys.
-- Migrations versus `create_all`.
-
-**Verify**
-```bash
-alembic revision --autogenerate -m "initial schema"
-alembic upgrade head
-alembic current
-```
-
-**Study**
-- SQLAlchemy asyncio: https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html
-- Alembic: https://alembic.sqlalchemy.org/en/latest/
-- PostgreSQL docs: https://www.postgresql.org/docs/
-
-**Done when**
-- Initial migration exists.
-- Database schema can be created from migrations.
-
-### Day 4 - Repository and Service Layer Pattern
-
-**Implement**
-- Create repository pattern for one domain first, likely users.
-- Add service layer above repository.
-- Keep database queries out of API route handlers.
-
-**Learn**
-- Separation of concerns.
-- Dependency injection.
-- Why routes should stay thin.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- FastAPI dependencies: https://fastapi.tiangolo.com/tutorial/dependencies/
-- SQLAlchemy sessions: https://docs.sqlalchemy.org/en/20/orm/session_basics.html
-
-**Done when**
-- One domain uses route -> service -> repository.
-- Tests can mock or isolate the service layer.
-
-### Day 5 - User API Foundation
-
-**Implement**
-- Add user schemas.
-- Add create user and get user endpoints.
-- Add password hashing but not full auth yet.
-- Add validation and duplicate email handling.
-
-**Learn**
-- Pydantic request/response schemas.
-- Password hashing basics.
-- HTTP status codes and error responses.
-
-**Verify**
-```bash
-pytest tests/ -v
-curl http://localhost:8000/docs
-```
-
-**Study**
-- FastAPI request body: https://fastapi.tiangolo.com/tutorial/body/
-- FastAPI response models: https://fastapi.tiangolo.com/tutorial/response-model/
-
-**Done when**
-- Users can be created through API.
-- Duplicate email returns a clean error.
-
-### Day 6 - Course API Foundation
-
-**Implement**
-- Add course schemas.
-- Add create/list/get/update endpoints for courses.
-- Keep publishing separate from CRUD.
-- Add basic filtering by status and instructor.
-
-**Learn**
-- RESTful resource design.
-- Pagination and filtering basics.
-- Domain modeling for course content.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- FastAPI bigger applications: https://fastapi.tiangolo.com/tutorial/bigger-applications/
-
-**Done when**
-- Course CRUD works through API.
-- Route structure is ready for modules and lessons.
-
-### Day 7 - Week 1 Review and Refactor
-
-**Implement**
-- Clean up naming and module boundaries.
-- Add missing tests for Week 1 code.
-- Write a short ADR for service/repository structure if the pattern is adopted.
-
-**Learn**
-- How to review code like a senior engineer.
-- How to spot accidental complexity.
-- How to keep commits meaningful.
-
-**Verify**
-```bash
-pytest tests/ -v --cov
-ruff check .
-```
-
-**Done when**
-- Week 1 code is clean, tested, and documented.
+That layering is exactly what each microservice uses internally, so nothing is wasted.
 
 ---
 
-## Week 2 - Core Learning Platform Behavior
+## Phase 1 — Extract the User Service (Days 5–9)
 
-### Day 8 - Authentication and RBAC
+**Phase goal:** turn the User domain into a standalone service with its own app, database,
+and migrations. This is the template every later service copies.
 
+### Day 5 — User service app + own database
 **Implement**
-- Add login endpoint.
-- Issue JWT access tokens.
-- Add current-user dependency.
-- Add role checks for student, instructor, and admin.
+- Add `services/user_service/main.py` — its own FastAPI app instance.
+- Add a dedicated `users_db` Postgres to `docker-compose.yml` (separate from any shared DB).
+- Add a per-service settings object with its own `USER_SERVICE_DATABASE_URL`.
+- Run the service standalone on its own port.
 
-**Learn**
-- JWT.
-- Authentication versus authorization.
-- RBAC.
+**Learn:** why database-per-service; how one repo can hold many runnable apps.
+**Verify:** `uvicorn services.user_service.main:app --port 8001` then hit `/health`.
+**Done when:** the User service boots independently against its own database.
 
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- FastAPI security: https://fastapi.tiangolo.com/tutorial/security/
-
-**Done when**
-- Protected endpoints require a token.
-- Instructor/admin-only checks work.
-
-### Day 9 - Course Modules, Lessons, and Assets
-
+### Day 6 — Move the User model + own migrations
 **Implement**
-- Add endpoints for modules and lessons.
-- Add ordering rules.
-- Add basic asset metadata endpoint.
-- Prevent students from editing instructor content.
+- Move the `User` model into `services/user_service/models/`.
+- Give the service its **own Alembic** environment and generate its initial migration.
+- Drop `User` from the shared models package.
 
-**Learn**
-- Nested resources.
-- Ownership checks.
-- API ergonomics.
+**Learn:** per-service migration history; why shared models break service isolation.
+**Verify:** `alembic -c services/user_service/alembic.ini upgrade head`; `\dt` in `users_db`.
+**Done when:** the User service creates its own schema from its own migration.
 
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Instructor can build a simple course outline.
-- Student cannot mutate instructor-owned content.
-
-### Day 10 - Enrollment With Strong Consistency
-
+### Day 7 — User CRUD through the layers
 **Implement**
-- Add enrollment endpoint.
-- Use a transaction.
-- Enforce one active enrollment per student/course.
-- Protect `current_enrollments` from race conditions.
+- Flesh out repository/service: `create_user`, `get_by_id`, `get_by_email`, `list`.
+- Add `POST /users` (create) and keep `GET` routes.
+- Password hashing (passlib/bcrypt); reject duplicate email cleanly.
 
-**Learn**
-- Database transactions.
-- Unique constraints.
-- Race conditions and consistency.
+**Learn:** password hashing basics; request/response schemas; clean error responses.
+**Verify:** `pytest services/user_service/tests -v`; create a user, reject a duplicate.
+**Done when:** users can be created and fetched via the service's own API.
 
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- PostgreSQL constraints: https://www.postgresql.org/docs/current/ddl-constraints.html
-- SQLAlchemy transactions: https://docs.sqlalchemy.org/en/20/orm/session_transaction.html
-
-**Done when**
-- Duplicate enrollment is prevented.
-- Enrollment count stays correct.
-
-### Day 11 - Progress Tracking
-
+### Day 8 — Publish the first event: `user.created`
 **Implement**
-- Add mark lesson complete endpoint.
-- Add progress percentage calculation.
-- Make completion idempotent.
+- Create `shared/events/` with a versioned event envelope (id, type, occurred_at, data).
+- Publish `user.created` to Kafka after a successful create (behind an interface).
+- Add a mocked test so tests don't require a live broker.
 
-**Learn**
-- Idempotency.
-- Derived state.
-- Why progress is critical data.
+**Learn:** event envelopes; producers; why events decouple services.
+**Verify:** `docker compose up -d kafka`; create a user; observe the event (or mock in test).
+**Done when:** creating a user emits a well-formed `user.created` event.
 
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Repeating the same completion request does not corrupt data.
-- Progress percentage updates correctly.
-
-### Day 12 - Error Handling, Pagination, and API Polish
-
+### Day 9 — Phase 1 review & the service template
 **Implement**
-- Add consistent error response shape.
-- Add pagination to list endpoints.
-- Add request IDs in logs.
-- Improve OpenAPI summaries and tags.
+- Extract the repeatable bits (app factory, settings base, alembic layout) into a
+  documented pattern other services will copy.
+- Write a short "how to add a new service" note in `docs/`.
 
-**Learn**
-- API contracts.
-- Error design.
-- Operability through logs.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Client errors are predictable.
-- List endpoints are paginated.
-
-### Day 13 - Integration Testing With PostgreSQL
-
-**Implement**
-- Add integration tests for user, course, and enrollment flows.
-- Prefer a real database in tests when validating SQL behavior.
-- Keep unit tests fast and integration tests focused.
-
-**Learn**
-- Test pyramid.
-- Why database behavior must be tested against a real database.
-- Fixtures and cleanup.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- FastAPI testing: https://fastapi.tiangolo.com/tutorial/testing/
-- Pytest docs: https://docs.pytest.org/
-
-**Done when**
-- Core flow tests pass reliably.
-
-### Day 14 - Week 2 Review and Demo
-
-**Implement**
-- Create a demo script or API collection showing:
-  - register/login
-  - create course
-  - add lesson
-  - enroll
-  - mark progress
-- Write Week 2 learning notes.
-
-**Learn**
-- End-to-end thinking.
-- How to explain a backend workflow clearly.
-
-**Done when**
-- A simple learner journey works.
+**Done when:** you can explain, and repeat, the steps to stand up a new service.
 
 ---
 
-## Week 3 - Events, Background Workflows, and AI Foundation
+## Phase 2 — Event Backbone (Days 10–13)
 
-### Day 15 - Event Design and Outbox Pattern
+**Phase goal:** make events reliable enough to build on, before more services depend on them.
 
+### Day 10 — Transactional outbox in the User service
 **Implement**
-- Define event envelope: event id, type, aggregate id, timestamp, correlation id, payload.
-- Add an outbox table or documented outbox plan.
-- Emit domain events inside database transactions.
+- Add an `outbox` table in `users_db`.
+- Write events to the outbox **in the same transaction** as the data change.
+- Add a poller that publishes outbox rows to Kafka and marks them sent.
 
-**Learn**
-- Event-driven architecture.
-- At-least-once delivery.
-- Why outbox prevents data loss.
+**Learn:** the dual-write problem; why the outbox pattern guarantees at-least-once delivery.
+**Verify:** create a user in a failing/succeeding transaction; confirm event only on commit.
+**Done when:** events are never lost even if Kafka is briefly down.
 
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Enrollment/course events can be stored reliably.
-
-### Day 16 - Kafka Publisher Prototype
-
+### Day 11 — A consumer + idempotency
 **Implement**
-- Add Kafka producer wrapper.
-- Publish outbox events to Kafka.
-- Add local topic naming conventions.
-- Keep consumers idempotent by design.
+- Add a tiny consumer (e.g. a temporary logging consumer) for `user.created`.
+- Track processed event ids so a re-delivered event is ignored.
 
-**Learn**
-- Kafka topics.
-- Producers and consumers.
-- Delivery semantics.
+**Learn:** consumer groups; offsets; idempotent consumers; at-least-once vs exactly-once.
+**Verify:** deliver the same event twice; confirm it's processed once.
+**Done when:** duplicate events cause no duplicate work.
 
-**Verify**
-```bash
-docker compose up -d kafka schema-registry
-pytest tests/ -v
-```
-
-**Study**
-- Kafka docs: https://kafka.apache.org/documentation/
-
-**Done when**
-- A local event can be published to Kafka.
-
-### Day 17 - Celery Background Task
-
+### Day 12 — Event contracts & schema discipline
 **Implement**
-- Add Celery app configuration.
-- Add one safe background task, such as analytics rollup or notification placeholder.
-- Add retry policy.
-- Document what belongs in Celery versus Temporal.
+- Document each event's schema in `shared/events/` (and/or the schema registry).
+- Add a compatibility note: how you'll evolve events without breaking consumers.
 
-**Learn**
-- Task queues.
-- Brokers and result backends.
-- Retry behavior.
+**Learn:** schemas as long-term contracts; backward/forward compatibility.
+**Done when:** event shapes are documented and versioning rules are written down.
 
-**Verify**
-```bash
-docker compose up -d redis
-pytest tests/ -v
-```
-
-**Study**
-- Celery docs: https://docs.celeryq.dev/en/stable/
-- Redis docs: https://redis.io/docs/latest/
-
-**Done when**
-- A task can be queued and executed locally.
-
-### Day 18 - Temporal Course Publishing Workflow
-
+### Day 13 — Testing across a boundary
 **Implement**
-- Add first Temporal workflow:
-  - validate course
-  - mark processing
-  - prepare indexing
-  - mark ready
-- Add retry and timeout policies.
-- Add idempotent activities.
+- Add a contract-style test: producer emits the agreed shape; a fake consumer asserts it.
+- Keep unit tests fast; mark broker-dependent tests separately.
 
-**Learn**
-- Workflow orchestration.
-- Activities.
-- Retries and workflow history.
-
-**Verify**
-```bash
-docker compose up -d temporal temporal-ui
-pytest tests/ -v
-```
-
-**Study**
-- Temporal Python SDK: https://docs.temporal.io/develop/python
-
-**Done when**
-- Course publishing workflow can run locally or in a mocked test.
-
-### Day 19 - Qdrant Vector Store Foundation
-
-**Implement**
-- Create Qdrant client wrapper.
-- Define collection config.
-- Add document chunk model for course content.
-- Add indexing placeholder for lesson content.
-
-**Learn**
-- Embeddings.
-- Vector search.
-- Collections, points, vectors, payloads.
-
-**Verify**
-```bash
-docker compose up -d qdrant
-pytest tests/ -v
-```
-
-**Study**
-- Qdrant docs: https://qdrant.tech/documentation/
-- OpenAI embeddings: https://platform.openai.com/docs/guides/embeddings
-
-**Done when**
-- Course content chunks can be indexed into Qdrant in local/dev mode.
-
-### Day 20 - LangGraph RAG Prototype
-
-**Implement**
-- Build a small LangGraph flow:
-  - receive question
-  - retrieve course context
-  - call LLM provider
-  - return answer
-- Use provider abstraction for OpenAI/Groq/Anthropic.
-- Add mocked tests so tests do not spend money.
-
-**Learn**
-- RAG.
-- LangGraph nodes and state.
-- Provider abstraction.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- LangGraph docs: https://docs.langchain.com/oss/python/langgraph/overview
-- OpenAI text generation: https://platform.openai.com/docs/guides/text
-- Groq docs: https://console.groq.com/docs/overview
-- Anthropic docs: https://docs.anthropic.com/en/docs/overview
-
-**Done when**
-- AI question flow works with mocked provider responses.
-
-### Day 21 - Streaming AI Endpoint and Week 3 Review
-
-**Implement**
-- Add streaming response endpoint for AI Q&A.
-- Add rate-limit placeholder or config.
-- Document cost and latency risks.
-
-**Learn**
-- Streaming responses.
-- AI cost controls.
-- Safe fallback design.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- A user can ask a course question and receive a streamed response in dev mode.
+**Learn:** contract testing; the test pyramid across services.
+**Done when:** a broken event shape fails a test before it reaches another service.
 
 ---
 
-## Week 4 - Observability, Reliability, Security, and Production Readiness
+## Phase 3 — Extract the Course Service (Days 14–18)
 
-### Day 22 - Structured Logging and Request IDs
+**Phase goal:** a second service, proving the template — and the first place we must get
+another service's data *without* a shared database.
 
-**Implement**
-- Add structured logs.
-- Add correlation/request ID middleware.
-- Include request ID in errors and logs.
+- **Day 14** — Course service app + own `courses_db` (copy the Phase 1 template).
+- **Day 15** — Move Course/Module/Lesson/Asset models + own migrations.
+- **Day 16** — Course CRUD API; keep publishing separate from CRUD; filtering by status.
+- **Day 17** — Publish `course.published` (via outbox); define the event contract.
+- **Day 18** — Course service consumes `user.created` to keep a **local read copy** of the
+  minimal instructor data it needs (name/id) — *no query into `users_db`*.
 
-**Learn**
-- Why logs are part of system design.
-- Correlation IDs.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Logs can connect a request to downstream work.
-
-### Day 23 - OpenTelemetry and Jaeger Tracing
-
-**Implement**
-- Add OpenTelemetry FastAPI instrumentation.
-- Export traces to Jaeger locally.
-- Trace one API request and one background/workflow path.
-
-**Learn**
-- Traces, spans, attributes.
-- Why tracing helps distributed systems.
-
-**Verify**
-```bash
-docker compose up -d jaeger
-```
-
-Open Jaeger at `http://localhost:16686`.
-
-**Study**
-- OpenTelemetry Python: https://opentelemetry.io/docs/languages/python/
-- Jaeger docs: https://www.jaegertracing.io/docs/
-
-**Done when**
-- A local request appears in Jaeger.
-
-### Day 24 - Prometheus Metrics and Grafana Dashboard
-
-**Implement**
-- Improve `/metrics`.
-- Add API latency and error counters.
-- Add basic Grafana dashboard notes or provisioning.
-
-**Learn**
-- Metrics versus logs versus traces.
-- Counters, histograms, labels.
-
-**Verify**
-```bash
-docker compose up -d prometheus grafana
-```
-
-Open:
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
-
-**Study**
-- Prometheus getting started: https://prometheus.io/docs/prometheus/latest/getting_started/
-- Grafana docs: https://grafana.com/docs/grafana/latest/
-
-**Done when**
-- API metrics are visible locally.
-
-### Day 25 - Reliability: Retries, Idempotency, and Dead Letters
-
-**Implement**
-- Review all background paths.
-- Add idempotency keys where needed.
-- Add retry policies.
-- Add dead-letter handling plan or implementation for failed events/tasks.
-
-**Learn**
-- Retry storms.
-- Dead letter queues.
-- At-least-once processing.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- RabbitMQ tutorials: https://www.rabbitmq.com/tutorials
-
-**Done when**
-- Failure behavior is documented and partially implemented.
-
-### Day 26 - Docker Images and Service Startup
-
-**Implement**
-- Add Dockerfile for the API.
-- Add API service to Docker Compose.
-- Add healthcheck.
-- Keep local dev workflow simple.
-
-**Learn**
-- Docker images.
-- Build context.
-- Container healthchecks.
-
-**Verify**
-```bash
-docker compose build
-docker compose up -d
-```
-
-**Study**
-- Dockerfile reference: https://docs.docker.com/reference/dockerfile/
-
-**Done when**
-- API can run inside Docker locally.
-
-### Day 27 - Security Pass
-
-**Implement**
-- Review secrets handling.
-- Confirm no real secrets are committed.
-- Add basic rate limiting plan or implementation.
-- Add CORS review.
-- Add authorization tests for protected endpoints.
-
-**Learn**
-- Defense in depth.
-- Secret management.
-- API security basics.
-
-**Verify**
-```bash
-rg -n "ghp_|github_pat_|SECRET_KEY|API_KEY|PASSWORD|TOKEN" .
-pytest tests/ -v
-```
-
-**Done when**
-- No real secrets are staged.
-- Protected endpoints have negative tests.
-
-### Day 28 - Performance Baseline
-
-**Implement**
-- Add simple load test script or documented command.
-- Measure current API latency for health, list courses, enroll, progress update.
-- Identify obvious database indexes.
-
-**Learn**
-- P95 latency.
-- Connection pools.
-- Indexes.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Baseline numbers are written down.
-- Follow-up performance risks are known.
-
-### Day 29 - Documentation, ADRs, and Cleanup
-
-**Implement**
-- Update README with current run/test instructions.
-- Add ADRs for:
-  - service/repository pattern
-  - event/outbox strategy
-  - Temporal versus Celery usage
-  - AI provider abstraction
-- Clean TODOs and known gaps.
-
-**Learn**
-- Architecture decision records.
-- How docs help future maintainers.
-
-**Done when**
-- A new engineer could run the project and understand the major decisions.
-
-### Day 30 - Month 1 Demo and Month 2 Backlog
-
-**Implement**
-- Create a demo flow:
-  - start services
-  - run migrations
-  - create user
-  - create course
-  - add lesson
-  - enroll student
-  - mark progress
-  - run publish workflow
-  - ask AI question
-  - inspect metrics/traces
-- Write `month-1-review.md`.
-- Confirm the Month 2 backlog against this plan.
-
-**Learn**
-- How to present engineering work clearly.
-- How to turn known gaps into a roadmap.
-
-**Done when**
-- Month 1 demo works.
-- Month 2 priorities are clear and ordered.
+**Learn:** local read models; eventual consistency; why duplication beats coupling here.
+**Done when:** Course service serves instructor info it learned via events, not via a join.
 
 ---
 
-## Week 5 - Harden Core Product APIs
+## Phase 4 — Enrollment Service (Milestone)
 
-### Day 31 - Month 1 Review and Backlog Triage
+The hardest service: it references **both** users and courses, which now live in other
+databases. This is where microservices trade-offs become concrete.
 
-**Implement**
-- Review Month 1 code against PRD requirements.
-- Create a prioritized Month 2 issue list.
-- Mark gaps as must-have, should-have, or later.
-- Clean up any broken or half-finished Month 1 paths before adding new features.
+- Own app + own `enrollments_db`; move Enrollment/Progress models + migrations.
+- **No FK to users or courses.** Store `student_id` / `course_id` as plain references.
+- Validate enrollments by **calling** the User and Course services (or checking a local
+  read copy built from their events).
+- Keep the enrollment uniqueness and idempotent-progress rules (now enforced within
+  `enrollments_db` only).
+- Publish `enrollment.created` and `progress.updated`.
 
-**Learn**
-- Backlog management.
-- Technical debt triage.
-- How senior engineers separate urgent from important.
-
-**Verify**
-```bash
-pytest tests/ -v
-ruff check .
-```
-
-**Done when**
-- Month 2 scope is clear.
-- No known broken Month 1 feature blocks new work.
-
-### Day 32 - API Contract Cleanup
-
-**Implement**
-- Standardize error response schema.
-- Add shared pagination schema.
-- Add response envelopes only if needed and consistently.
-- Improve OpenAPI tags, descriptions, and examples.
-
-**Learn**
-- API contracts.
-- OpenAPI documentation quality.
-- Backward compatibility.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- FastAPI metadata and docs: https://fastapi.tiangolo.com/tutorial/metadata/
-
-**Done when**
-- Core endpoints have consistent success and error responses.
-
-### Day 33 - Instructor Course Management Polish
-
-**Implement**
-- Add instructor-only update/delete rules.
-- Add course draft/ready/published transition validation.
-- Add course list filtering by status, language, difficulty, and instructor.
-- Add tests for ownership and invalid transitions.
-
-**Learn**
-- State machines.
-- Ownership-based authorization.
-- Query filtering.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Course state changes are explicit and protected.
-
-### Day 34 - Content Asset Metadata and Upload Plan
-
-**Implement**
-- Complete asset metadata APIs.
-- Add file validation rules, but keep binary storage simple for now.
-- Document future object storage plan for S3/MinIO-compatible storage.
-- Add tests for asset ownership and file metadata validation.
-
-**Learn**
-- File metadata modeling.
-- Why production apps separate metadata from binary storage.
-- Object storage basics.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Asset metadata is usable and storage limitations are documented.
-
-### Day 35 - Admin APIs and Audit Trail
-
-**Implement**
-- Add admin-only endpoints for user/course visibility.
-- Add audit log model for sensitive actions.
-- Log admin actions such as status changes and user role changes.
-
-**Learn**
-- Audit logging.
-- Admin boundaries.
-- Accountability in enterprise systems.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Sensitive admin behavior leaves an audit trail.
-
-### Day 36 - Authorization Negative Tests
-
-**Implement**
-- Add tests that prove students cannot perform instructor/admin actions.
-- Add tests that prove instructors cannot mutate another instructor's content.
-- Add tests for unauthenticated requests.
-
-**Learn**
-- Negative testing.
-- Security regression tests.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Authorization is tested as a first-class feature.
-
-### Day 37 - Week 5 Review
-
-**Implement**
-- Refactor duplicated permission checks.
-- Update README/API notes if endpoint behavior changed.
-- Review logs and error responses for clarity.
-
-**Learn**
-- How to keep authorization maintainable.
-- When to extract shared policy helpers.
-
-**Done when**
-- Core product APIs feel consistent and reviewable.
+**Learn:** cross-service consistency, sagas vs local checks, handling a dependency being
+down.
+**Done when:** a student can enroll and progress without any cross-database access.
 
 ---
 
-## Week 6 - Event-Driven Reliability and Analytics
+## Phase 5 — API Gateway & Cross-Service Auth (Milestone)
 
-### Day 38 - Outbox Processor
+- Introduce an edge/gateway that routes external traffic to the right service.
+- Decide where auth lives: issue JWTs centrally; each service **verifies** them locally
+  (shared verification helper in `shared/`, not a shared user table).
+- RBAC checks (student/instructor/admin) enforced per service.
 
-**Implement**
-- Build the outbox polling/dispatch process.
-- Mark events as pending, published, failed, or dead-lettered.
-- Add retry count and last error fields.
-- Add tests for retry and failure paths.
-
-**Learn**
-- Transactional outbox pattern.
-- At-least-once delivery.
-- Failure state design.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Outbox events can be safely dispatched or marked failed.
-
-### Day 39 - Kafka Consumers and Idempotency
-
-**Implement**
-- Add a consumer base pattern.
-- Track processed event IDs.
-- Add consumers for `enrollment.created` and `progress.updated`.
-- Ensure duplicate events do not duplicate read-model updates.
-
-**Learn**
-- Idempotent consumers.
-- Consumer groups.
-- Offset handling.
-
-**Verify**
-```bash
-docker compose up -d kafka schema-registry
-pytest tests/ -v
-```
-
-**Study**
-- Kafka docs: https://kafka.apache.org/documentation/
-
-**Done when**
-- Duplicate event processing is safe.
-
-### Day 40 - Analytics Read Models
-
-**Implement**
-- Add read models for course enrollment count, completion count, average progress, and active learners.
-- Populate read models from events where practical.
-- Add reconciliation command or script to rebuild analytics from source tables.
-
-**Learn**
-- CQRS.
-- Read models.
-- Reconciliation jobs.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Analytics data can be updated incrementally and rebuilt.
-
-### Day 41 - Analytics API
-
-**Implement**
-- Add instructor analytics endpoint for course-level metrics.
-- Add admin analytics endpoint for platform-level metrics.
-- Add permissions and tests.
-
-**Learn**
-- Metrics API design.
-- Query performance for reporting.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Instructors and admins can inspect basic learning metrics.
-
-### Day 42 - Redis Caching for Course Reads
-
-**Implement**
-- Add Redis cache wrapper.
-- Cache published course detail and course list responses.
-- Add invalidation on course updates/publish.
-- Add tests around cache hit/miss behavior with mocks.
-
-**Learn**
-- Cache-aside pattern.
-- Cache invalidation.
-- TTLs.
-
-**Verify**
-```bash
-docker compose up -d redis
-pytest tests/ -v
-```
-
-**Study**
-- Redis docs: https://redis.io/docs/latest/
-
-**Done when**
-- Read-heavy course data can be cached without stale update bugs.
-
-### Day 43 - Workflow Failure Recovery
-
-**Implement**
-- Improve Temporal course publishing workflow.
-- Add compensating activities for failed indexing/preparation.
-- Add workflow status endpoint.
-- Add tests for failed and retried activities.
-
-**Learn**
-- Saga pattern.
-- Workflow compensation.
-- Temporal workflow history.
-
-**Verify**
-```bash
-docker compose up -d temporal temporal-ui
-pytest tests/ -v
-```
-
-**Study**
-- Temporal Python SDK: https://docs.temporal.io/develop/python
-
-**Done when**
-- Failed publishing does not leave course state ambiguous.
-
-### Day 44 - Week 6 Review
-
-**Implement**
-- Review all event names and payload schemas.
-- Document event contracts.
-- Add ADR for outbox and analytics read models.
-
-**Learn**
-- Event schema ownership.
-- Why event changes are long-term contracts.
-
-**Done when**
-- Event-driven behavior is documented and testable.
+**Learn:** gateway routing, token verification at the edge and per service, trust boundaries.
 
 ---
 
-## Week 7 - AI Assistant v1 and Observability
+## Phase 6 — Analytics Service (Milestone)
 
-### Day 45 - AI Provider Abstraction
+- Event-driven **read models**: consume `enrollment.created`, `progress.updated`,
+  `course.published` to build course/instructor/platform metrics in `analytics_db`.
+- Add a reconciliation job to rebuild analytics from event history.
+- Instructor and admin analytics APIs with permissions.
 
-**Implement**
-- Define a provider interface for OpenAI, Groq, and Anthropic.
-- Keep provider-specific code behind adapters.
-- Add mocked tests for provider failures and timeouts.
-
-**Learn**
-- Adapter pattern.
-- Vendor abstraction.
-- AI timeout and fallback design.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- OpenAI text generation: https://platform.openai.com/docs/guides/text
-- Groq docs: https://console.groq.com/docs/overview
-- Anthropic docs: https://docs.anthropic.com/en/docs/overview
-
-**Done when**
-- The app can switch providers through config.
-
-### Day 46 - Better Content Indexing
-
-**Implement**
-- Add chunking strategy for lessons and assets.
-- Store chunk metadata: course id, lesson id, title, source type, order.
-- Re-index content when course content changes.
-
-**Learn**
-- Chunking.
-- Embedding metadata.
-- Index freshness.
-
-**Verify**
-```bash
-docker compose up -d qdrant
-pytest tests/ -v
-```
-
-**Study**
-- Qdrant docs: https://qdrant.tech/documentation/
-- OpenAI embeddings: https://platform.openai.com/docs/guides/embeddings
-
-**Done when**
-- Retrieval can return useful source metadata.
-
-### Day 47 - AI Answers With Citations
-
-**Implement**
-- Return source references with AI answers.
-- Include lesson title/source ids in response.
-- Add prompt rules that avoid answering without enough context.
-- Add mocked tests for citation behavior.
-
-**Learn**
-- Grounded generation.
-- Citations.
-- Hallucination reduction.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Answers show where the information came from.
-
-### Day 48 - AI Cost and Rate Controls
-
-**Implement**
-- Track AI requests per user/course.
-- Add configurable rate limits.
-- Add max retrieved chunks and max token budget settings.
-- Add fallback response for provider failure.
-
-**Learn**
-- AI cost control.
-- Rate limiting.
-- Graceful degradation.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- AI behavior has basic cost and abuse controls.
-
-### Day 49 - Structured Logging Everywhere
-
-**Implement**
-- Add consistent structured logs for API, DB, workflow, event, and AI paths.
-- Include request id, user id when available, correlation id, and workflow/event id.
-- Avoid logging secrets or full prompts when not needed.
-
-**Learn**
-- Structured logging.
-- Privacy-aware logs.
-- Correlation across services.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- Logs can explain a user journey without exposing secrets.
-
-### Day 50 - Tracing Critical Flows
-
-**Implement**
-- Instrument FastAPI, SQLAlchemy, and outbound AI calls.
-- Add spans for workflow/event dispatch points where practical.
-- Confirm traces in Jaeger.
-
-**Learn**
-- Distributed tracing.
-- Spans and attributes.
-- Trace sampling.
-
-**Verify**
-```bash
-docker compose up -d jaeger
-pytest tests/ -v
-```
-
-**Study**
-- OpenTelemetry Python: https://opentelemetry.io/docs/languages/python/
-- Jaeger: https://www.jaegertracing.io/docs/
-
-**Done when**
-- At least one learner journey appears as a trace.
-
-### Day 51 - Metrics and Dashboards
-
-**Implement**
-- Add metrics for API latency, error count, workflow failures, event failures, AI latency, and AI request count.
-- Add Grafana dashboard provisioning or documented setup.
-- Add dashboard screenshots or notes if useful.
-
-**Learn**
-- Prometheus metrics.
-- Grafana dashboards.
-- Alert-friendly labels.
-
-**Verify**
-```bash
-docker compose up -d prometheus grafana
-pytest tests/ -v
-```
-
-**Study**
-- Prometheus: https://prometheus.io/docs/prometheus/latest/getting_started/
-- Grafana: https://grafana.com/docs/grafana/latest/
-
-**Done when**
-- Local dashboards show system health.
+**Learn:** CQRS, read models, reconciliation — microservices' natural analytics pattern.
 
 ---
 
-## Week 8 - Production Readiness, CI, and Demo
+## Phase 7 — AI Service (Milestone)
 
-### Day 52 - Dockerize API Service
+- Own service wrapping Qdrant + LangGraph for course Q&A (RAG).
+- Index course content it learns about via events (re-index on `course.published`).
+- Provider abstraction (OpenAI/Groq/Anthropic); citations; streaming; cost/rate controls.
+- Mocked provider tests so tests don't spend money.
 
-**Implement**
-- Add API Dockerfile.
-- Add API service to Compose.
-- Add API healthcheck.
-- Confirm API can reach Postgres, Redis, Kafka, Temporal, and Qdrant by service names.
+**Learn:** embeddings, vector search, RAG, provider abstraction, grounded generation.
 
-**Learn**
-- Docker image layers.
-- Container networking.
-- Healthchecks.
+---
 
-**Verify**
-```bash
-docker compose build api
-docker compose up -d api
-```
+## Phase 8 — Observability Across Services (Milestone)
 
-**Done when**
-- Full local stack can run from Compose.
+- Structured logs with correlation ids **propagated across service calls and events**.
+- OpenTelemetry tracing that follows one request through the gateway → services → events.
+- Prometheus metrics per service; Grafana dashboards; Jaeger traces spanning boundaries.
 
-### Day 53 - Developer Commands and Seed Data
+**Learn:** distributed tracing, correlation across async hops, per-service golden signals.
 
-**Implement**
-- Add Makefile, taskfile, or documented scripts for common commands.
-- Add seed data command for users, courses, lessons, enrollments.
-- Add reset-local-dev instructions.
+---
 
-**Learn**
-- Developer experience.
-- Repeatable local environments.
+## Phase 9 — Containerization, CI & Local Orchestration (Milestone)
 
-**Verify**
-```bash
-pytest tests/ -v
-```
+- A **Dockerfile per service**; each added to `docker-compose.yml` with its own DB + healthcheck.
+- One command to bring up the whole system locally.
+- CI that lints, tests, and checks migrations **per service** (matrix build).
+- Seed-data and reset scripts for the full multi-service stack.
 
-**Done when**
-- A new developer can run the project without guessing commands.
+**Learn:** container-per-service, service networking, per-service pipelines.
 
-### Day 54 - CI Pipeline
+---
 
-**Implement**
-- Add GitHub Actions workflow.
-- Run lint, tests, compile, and migration checks.
-- Keep secrets out of CI logs.
+## Phase 10 — Reliability, Performance, Security & Demo (Milestone)
 
-**Learn**
-- CI quality gates.
-- Fast feedback loops.
+- Retries, timeouts, dead-letter handling for events/consumers; workflow compensation (Temporal).
+- Per-service indexing and a performance baseline for key flows.
+- Security pass: secret hygiene, CORS, rate limits, authorization negative tests per service.
+- End-to-end demo across all services; `month-2-review.md`; Month 3 roadmap (frontend/deploy/scale).
 
-**Verify**
-```bash
-pytest tests/ -v
-ruff check .
-```
-
-**Done when**
-- Pull requests get automated checks.
-
-### Day 55 - Security Hardening Pass
-
-**Implement**
-- Review JWT expiry, password policy, CORS, rate limits, and secret handling.
-- Add authorization regression tests.
-- Add dependency/security scan notes if a tool is not added yet.
-
-**Learn**
-- Security review habits.
-- Secret hygiene.
-- Least privilege.
-
-**Verify**
-```bash
-rg -n "ghp_|github_pat_|SECRET_KEY|API_KEY|PASSWORD|TOKEN" .
-pytest tests/ -v
-```
-
-**Done when**
-- No real secrets are present and sensitive paths are tested.
-
-### Day 56 - Performance Baseline and Index Review
-
-**Implement**
-- Add simple load test script or documented command.
-- Measure API latency for core paths.
-- Add or review indexes for user lookup, course listing, enrollment lookup, progress lookup, and outbox polling.
-- Document bottlenecks.
-
-**Learn**
-- P95 latency.
-- Index design.
-- EXPLAIN basics.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Study**
-- PostgreSQL EXPLAIN: https://www.postgresql.org/docs/current/using-explain.html
-
-**Done when**
-- Performance baseline is documented.
-
-### Day 57 - End-to-End Demo Script
-
-**Implement**
-- Add a script or documented API collection for the full demo:
-  - create admin/instructor/student
-  - login
-  - create course
-  - add content
-  - publish course
-  - enroll student
-  - update progress
-  - ask AI question
-  - inspect analytics
-  - inspect metrics/traces
-
-**Learn**
-- Demo-driven validation.
-- How to prove the system works end to end.
-
-**Verify**
-```bash
-pytest tests/ -v
-```
-
-**Done when**
-- The demo can be repeated after a clean local setup.
-
-### Day 58 - Documentation and ADR Update
-
-**Implement**
-- Update README.
-- Add runbook for local troubleshooting.
-- Add ADRs for:
-  - auth/RBAC
-  - outbox and event processing
-  - Temporal/Celery boundary
-  - AI provider and RAG approach
-  - observability stack
-
-**Learn**
-- Runbooks.
-- Architecture decision records.
-
-**Done when**
-- Documentation matches the current code.
-
-### Day 59 - Month 2 Review and Bug Bash
-
-**Implement**
-- Run the full test suite.
-- Manually walk through the demo.
-- Fix highest-risk bugs.
-- Document known limitations honestly.
-
-**Learn**
-- Release-readiness review.
-- Risk-based testing.
-
-**Verify**
-```bash
-pytest tests/ -v --cov
-docker compose config -q
-```
-
-**Done when**
-- Remaining gaps are known and prioritized.
-
-### Day 60 - Final Demo and Month 3 Roadmap
-
-**Implement**
-- Write `month-2-review.md`.
-- Record what was built, what was learned, and what is still not production-ready.
-- Draft Month 3 roadmap for frontend, deployment, hardening, and scale.
-
-**Learn**
-- Engineering communication.
-- Roadmap planning.
-
-**Done when**
-- SmartCourse has a credible enterprise-style MVP.
-- Month 3 direction is clear.
+**Learn:** resilience patterns, saga compensation, release-readiness across a distributed system.
 
 ---
 
 ## What To Learn By Topic
 
-### Backend API
-- FastAPI routes, dependencies, middleware, security, testing.
-- Pydantic schemas and settings.
-- REST API design and OpenAPI docs.
+### Microservices & Distributed Systems
+- Service boundaries, database-per-service, no cross-service FKs.
+- Sync (HTTP) vs async (events) communication and when to use each.
+- Eventual consistency, read models, sagas, idempotency.
+- API gateway, service discovery basics, trust boundaries.
 
-### Database
-- PostgreSQL tables, constraints, indexes, transactions.
-- SQLAlchemy async sessions and ORM relationships.
-- Alembic migrations and schema review.
+### Event-Driven Architecture
+- Event envelopes and contracts; Kafka topics, producers, consumers, groups, offsets.
+- Transactional outbox; at-least-once delivery; dead-letter handling.
 
-### Distributed Systems
-- Events and event envelopes.
-- Kafka topics and consumers.
-- RabbitMQ queues and dead letters.
-- Celery for background jobs.
-- Temporal for long-running reliable workflows.
+### Backend Per Service
+- FastAPI app-per-service, dependencies, middleware, security, testing.
+- Pydantic schemas/settings; REST design and OpenAPI docs.
+- PostgreSQL per service; SQLAlchemy async; per-service Alembic migrations.
 
 ### AI
-- Embeddings and vector search.
-- Qdrant collections, vectors, and payloads.
-- RAG flow: retrieve context, generate answer, stream result.
-- LangGraph for multi-step AI workflows.
-- Provider abstraction for OpenAI, Groq, and Anthropic.
+- Embeddings, Qdrant, RAG, LangGraph, provider abstraction, citations, cost controls.
 
 ### Observability
-- Logs for events.
-- Metrics for system health.
-- Traces for request flow.
-- Prometheus, Grafana, OpenTelemetry, and Jaeger.
+- Correlation ids across services; OpenTelemetry/Jaeger tracing across boundaries;
+  Prometheus/Grafana per service.
 
-### Security and Reliability
-- JWT auth and RBAC.
-- Secret hygiene.
-- CORS.
-- Rate limiting.
-- Idempotency and retries.
-- Dead letter queues.
-
-### Developer Experience and Production Readiness
-- Dockerized API service.
-- Repeatable local setup and seed data.
-- CI checks for tests, linting, and migration safety.
-- Demo scripts and runbooks.
-- Release-readiness reviews.
+### Reliability, Security & DevEx
+- Retries/timeouts/idempotency; saga compensation with Temporal.
+- JWT verification per service; RBAC; secret hygiene; rate limiting.
+- Dockerfile-per-service; per-service CI; repeatable multi-service local setup.
 
 ---
 
@@ -1520,91 +321,49 @@ docker compose config -q
 - Alembic: https://alembic.sqlalchemy.org/en/latest/
 - PostgreSQL: https://www.postgresql.org/docs/
 - Docker Compose: https://docs.docker.com/compose/
+- Kafka: https://kafka.apache.org/documentation/
+- Transactional outbox pattern: https://microservices.io/patterns/data/transactional-outbox.html
+- Database per service: https://microservices.io/patterns/data/database-per-service.html
+- Saga pattern: https://microservices.io/patterns/data/saga.html
+- API gateway: https://microservices.io/patterns/apigateway.html
+- Temporal Python SDK: https://docs.temporal.io/develop/python
 - Celery: https://docs.celeryq.dev/en/stable/
 - Redis: https://redis.io/docs/latest/
-- Kafka: https://kafka.apache.org/documentation/
-- RabbitMQ tutorials: https://www.rabbitmq.com/tutorials
-- Temporal Python SDK: https://docs.temporal.io/develop/python
 - Qdrant: https://qdrant.tech/documentation/
 - LangGraph: https://docs.langchain.com/oss/python/langgraph/overview
-- OpenAI text generation: https://platform.openai.com/docs/guides/text
 - OpenAI embeddings: https://platform.openai.com/docs/guides/embeddings
-- Groq docs: https://console.groq.com/docs/overview
-- Anthropic docs: https://docs.anthropic.com/en/docs/overview
-- Prometheus: https://prometheus.io/docs/prometheus/latest/getting_started/
-- Grafana: https://grafana.com/docs/grafana/latest/
+- Groq: https://console.groq.com/docs/overview
+- Anthropic: https://docs.anthropic.com/en/docs/overview
 - OpenTelemetry Python: https://opentelemetry.io/docs/languages/python/
 - Jaeger: https://www.jaegertracing.io/docs/
+- Prometheus: https://prometheus.io/docs/prometheus/latest/getting_started/
+- Grafana: https://grafana.com/docs/grafana/latest/
 
 ---
 
-## Commit Strategy
+## Definition Of Done (Microservices MVP)
 
-Use small commits that tell the story:
+The migration is on track when:
 
-```bash
-git commit -m "Add initial database migration"
-git commit -m "Add user service and API"
-git commit -m "Add course service and API"
-git commit -m "Add transactional enrollment flow"
-git commit -m "Add course publishing workflow"
-git commit -m "Add AI question answering prototype"
-git commit -m "Add observability instrumentation"
-git commit -m "Add outbox event processor"
-git commit -m "Add analytics read models"
-git commit -m "Harden AI assistant with citations and limits"
-git commit -m "Dockerize API service"
-git commit -m "Add CI quality checks"
-```
-
-Avoid one giant month-end commit. The project should be easy to review one slice at a time.
+- At least User and Course run as **independent services with their own databases**.
+- Services communicate via **events and HTTP only** — no cross-service DB access anywhere.
+- The **outbox** guarantees events aren't lost; **consumers are idempotent**.
+- Enrollment works **without** foreign keys to users/courses.
+- Each service has its **own migrations, tests, and Dockerfile**.
+- A request can be **traced across services**; each service exposes metrics.
+- Docs (ADR, PRD, per-service READMEs) match the running system.
+- You can explain database-per-service, eventual consistency, and the outbox pattern.
 
 ---
-
-## Definition Of Done For Month 1
-
-Month 1 is successful if:
-
-- A developer can clone the repo and run the app locally.
-- The database schema is managed by Alembic migrations.
-- Core learner journey works through APIs.
-- Critical enrollment logic is transaction-safe and tested.
-- Background processing has at least one working path.
-- Course publishing has a Temporal workflow foundation.
-- AI Q&A has a local/dev prototype with mocked tests.
-- Metrics and traces are visible locally.
-- README and ADRs explain the key architecture choices.
-- You can explain every major technology in the stack at a beginner-to-intermediate level.
-
-## Definition Of Done For Month 2
-
-Month 2 is successful if:
-
-- Core instructor, learner, and admin flows are usable through APIs.
-- Authorization is tested with positive and negative cases.
-- Event publishing uses an outbox processor and idempotent consumers.
-- Analytics read models support basic instructor/admin reporting.
-- Course publishing workflow handles retries and failure states.
-- AI assistant can retrieve course context, stream answers, cite sources, and fail gracefully.
-- Redis caching is used where it clearly improves read behavior.
-- Structured logs, metrics, and traces exist for critical flows.
-- The API can run in Docker Compose with the rest of the local stack.
-- CI runs tests, linting, and basic validation.
-- Security review confirms no real secrets are committed.
-- Performance baseline and database indexing notes exist.
-- Documentation, ADRs, and runbooks match the current system.
-- You can explain the difference between MVP, enterprise-style MVP, and production enterprise readiness.
 
 ## What Still Will Not Be Fully Finished After 2 Months
 
-Even after a strong two-month build, this is still not the same as a fully production enterprise platform. Likely remaining work:
+Even with a strong two-month build, this is not yet a production platform. Likely remaining:
 
-- Polished frontend application and admin dashboard.
-- Production cloud deployment and infrastructure-as-code.
-- Multi-tenant enterprise account model.
-- File/media storage with production object storage.
-- Full backup, restore, and disaster recovery plan.
-- Advanced monitoring alerts and on-call runbooks.
-- Security review by another engineer or tool-assisted audit.
-- Load testing at the full 10,000+ concurrent learner target.
-- Billing, SSO, enterprise integrations, and compliance features if needed.
+- Polished frontend and admin dashboard.
+- Production cloud deployment, service mesh, and infrastructure-as-code.
+- Full distributed-tracing coverage and mature alerting/on-call runbooks.
+- Robust saga/compensation coverage for every multi-service operation.
+- Multi-tenant model, SSO, billing, and compliance features.
+- Load testing at the full 10,000+ concurrent-learner target.
+- Backup/restore and disaster recovery per service.

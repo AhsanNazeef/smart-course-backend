@@ -571,30 +571,36 @@ SmartCourse is an intelligent, large-scale learning platform designed to support
 
 ## Appendix A: Architecture Overview
 
-The SmartCourse platform is built as a **modular monolith with a microservices-ready
-structure**: a single deployable FastAPI application, internally organized into clear
-service modules (Course, User, Enrollment, Analytics, AI), each following a
-`route → service → repository` pattern over a shared PostgreSQL database. The
-event-driven infrastructure below is deliberately microservices-friendly, so individual
-modules can be extracted into standalone services later if scale or team structure
-requires it.
+The SmartCourse platform follows a **microservices architecture in a monorepo, with a
+database per service**. Each service (Course, User, Enrollment, Analytics, AI) is its own
+independently-runnable FastAPI application that owns its own database and exposes its own
+API. Services never reach into each other's databases; they communicate through **Kafka
+events** (async) and **HTTP** (sync) only. All services live in one git repository and are
+orchestrated locally by Docker Compose.
 
-> **Status note (unverified against target end-state):** the current implementation is a
-> modular monolith. It is *not* yet a true microservices deployment (which would require
-> per-service databases, independently deployable apps, and network/event-based
-> communication instead of in-process calls). This appendix describes the intended
-> component breakdown, not a claim that services are independently deployed today.
+Internally, every service keeps the `route → service → repository` layering, so the clean
+structure built during the monolith phase carries directly into each service.
+
+> **Migration status (in progress, unverified against end-state):** the codebase is being
+> migrated from an initial modular monolith to this microservices layout, **one service at
+> a time** (starting with the User service). Until a given service is extracted, it may
+> still run inside the original app. See
+> [ADR-001](../architecture/adr-001-microservices-monorepo.md) for the decision and plan.
 
 **Components:**
 
-1. **API layer:** FastAPI-based REST API (single app today; splittable per module later)
-2. **Core service modules:** Course, User, Enrollment, Analytics
-3. **AI service module:** LangGraph-based AI assistant
-4. **Workflow Engine:** Temporal for orchestration
-5. **Event Bus:** Kafka for event streaming (the seam for future service extraction)
-6. **Data Layer:** PostgreSQL, NoSQL, Redis, Vector DB
-7. **Background Workers:** Celery for async processing
-8. **Observability:** Prometheus, Grafana, Jaeger, OpenTelemetry
+1. **Services (each its own app + own database):** User, Course, Enrollment, Analytics, AI
+2. **API Gateway / edge routing:** routes external traffic to the right service
+3. **Workflow Engine:** Temporal for cross-service orchestration
+4. **Event Bus:** Kafka — the primary way services communicate and stay decoupled
+5. **Per-service data stores:** each service owns its PostgreSQL database (plus Redis / Vector DB / NoSQL where a service needs it)
+6. **Background Workers:** Celery for async processing
+7. **Observability:** Prometheus, Grafana, Jaeger, OpenTelemetry across all services
+
+**Defining rule:** *a service is the only thing allowed to touch its own database.* Any
+data another service needs is obtained by calling its API or subscribing to its events —
+never by querying its tables directly. This is what makes the services independently
+deployable and is the single most important constraint of the architecture.
 
 ---
 

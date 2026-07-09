@@ -2,6 +2,14 @@
 
 A beginner-friendly guide to everything built on Day 4, and **why** each piece exists.
 
+> **📌 Architecture note (added 2026-07-09):** After Day 4, the project switched to a
+> **microservices** architecture (monorepo, database-per-service — see
+> [ADR-001](../architecture/adr-001-microservices-monorepo.md)). This guide documents the
+> User domain *as originally built inside the monolith*. The good news: the
+> `route → service → repository` layering below is **exactly** what each microservice uses
+> internally, so everything here still applies — it just now lives inside the User
+> service's own app and database instead of one shared app.
+
 ---
 
 ## 🎯 The Big Picture First

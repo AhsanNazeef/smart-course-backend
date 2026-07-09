@@ -41,19 +41,21 @@ SmartCourse is an intelligent, large-scale learning platform for universities, e
 
 ## Architecture Overview
 
-### Modular Monolith (Microservices-Ready)
-The platform is a **modular monolith**: one deployable FastAPI application, internally
-split into service modules with clear separation of concerns (each module follows a
-`route → service → repository` pattern). It is **not** a true microservices deployment
-today — the modules share one PostgreSQL database and communicate via in-process calls,
-not the network. The structure and event-driven infrastructure are deliberately
-**microservices-ready**, so a module can be extracted into a standalone service later if
-a real scaling or team-structure need arises.
+### Microservices (Monorepo, Database-per-Service)
+The platform follows a **microservices architecture in a monorepo**. Each service is its
+own independently-runnable FastAPI app that **owns its own database** and exposes its own
+API. Services communicate only through **Kafka events** (async) and **HTTP** (sync) — never
+by reading each other's databases. All services live in one git repo and run locally via
+Docker Compose. Internally, each service keeps the `route → service → repository` layering.
 
-> Treat the "Service" names below as **modules within one app**, not independently
-> deployed services.
+> **Migration in progress:** the codebase is being moved from an initial modular monolith
+> to this layout **one service at a time** (User service first). See
+> `docs/architecture/adr-001-microservices-monorepo.md` for the decision and plan.
 
-**Core Service Modules:**
+> **The one rule that defines everything:** a service may only touch **its own** database.
+> Need another service's data? Call its API or consume its events — do not query its tables.
+
+**Core Services (each = own app + own database):**
 - **Course Service:** Course creation, management, publishing
 - **User Service:** Authentication, authorization, user management
 - **Enrollment Service:** Enrollment handling, progress tracking
@@ -590,7 +592,7 @@ For every new feature, service, workflow, database model, migration, queue, even
 
 This project is designed to help you gain practical experience with:
 
-- **Software Architecture:** Modular monolith (microservices-ready), event-driven design, CQRS
+- **Software Architecture:** Microservices (monorepo, database-per-service), event-driven design, CQRS
 - **Design Principles:** SOLID principles, design patterns
 - **Workflow Orchestration:** Temporal for complex workflows
 - **Distributed Systems:** Event streaming, message queues
@@ -609,7 +611,7 @@ The objective is not only to complete the milestones but also to deeply understa
 When starting work on this project:
 
 1. **Read the PRD** (`docs/product/prd.md`) - Understand requirements and use cases
-2. **Review the architecture** - Understand the modular-monolith (microservices-ready) design
+2. **Review the architecture** - Understand the microservices (monorepo, database-per-service) design and ADR-001
 3. **Set up local environment** - Docker Compose for all dependencies
 4. **Review existing code** - Understand code patterns and conventions
 5. **Run tests** - Ensure test suite passes

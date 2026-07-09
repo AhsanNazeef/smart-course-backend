@@ -39,30 +39,45 @@ An intelligent, large-scale learning platform designed to support modern digital
 - **Tracing**: Jaeger
 - **Instrumentation**: OpenTelemetry
 
+## Architecture
+
+SmartCourse is a **microservices application in a monorepo, with a database per service**.
+Each service (User, Course, Enrollment, Analytics, AI) is its own independently-runnable
+FastAPI app that owns its own database and communicates with others only via **Kafka
+events** and **HTTP** — never by sharing a database. See
+[ADR-001](docs/architecture/adr-001-microservices-monorepo.md) for the decision and the
+service-by-service migration plan.
+
 ## Project Structure
 
 ```text
 smartcourse/
-|-- services/
-|   |-- course_service/          # Course management
-|   |-- user_service/            # User authentication & management
-|   |-- enrollment_service/      # Enrollment & progress tracking
-|   |-- analytics_service/       # Metrics & reporting
-|   `-- ai_service/              # AI assistant & content generation
-|-- shared/
-|   |-- models/                  # Database models
-|   |-- schemas/                 # Pydantic schemas
-|   |-- utils/                   # Shared utilities
-|   `-- config/                  # Configuration management
-|-- workflows/                   # Temporal workflows
-|-- tests/                       # Test suite
+|-- services/                    # one folder per microservice (own app + own DB)
+|   |-- user_service/
+|   |   |-- api/                 # routes (thin HTTP layer)
+|   |   |-- core/                # service + repository (logic + data access)
+|   |   |-- models/              # this service's own DB models
+|   |   |-- alembic/             # this service's own migrations
+|   |   `-- main.py              # this service's FastAPI entry point
+|   |-- course_service/          # (same internal shape)
+|   |-- enrollment_service/
+|   |-- analytics_service/
+|   `-- ai_service/
+|-- shared/                      # cross-service code ONLY (no business data models)
+|   |-- events/                  # event contracts (Kafka message schemas)
+|   |-- utils/                   # shared helpers
+|   `-- config/                  # base configuration
+|-- workflows/                   # Temporal workflows (cross-service orchestration)
 |-- docker/                      # Docker configurations
-|-- alembic/                     # Database migrations
-|-- main.py                      # FastAPI application entry point
-|-- docker-compose.yml           # Development environment
+|-- docker-compose.yml           # runs every service + its own database
 |-- pyproject.toml               # Python project configuration
 `-- requirements.txt             # Python dependencies
 ```
+
+> **Migration note:** the repo is being moved from an initial modular monolith to the
+> layout above **one service at a time** (User service first). Some paths (e.g. a
+> top-level `main.py`, a shared `alembic/`, `shared/models/`) still reflect the monolith
+> and will be relocated into their owning service as the migration proceeds.
 
 ## Quick Start
 
