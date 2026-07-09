@@ -571,13 +571,27 @@ SmartCourse is an intelligent, large-scale learning platform designed to support
 
 ## Appendix A: Architecture Overview
 
-The SmartCourse platform follows a microservices architecture with:
+The SmartCourse platform is built as a **modular monolith with a microservices-ready
+structure**: a single deployable FastAPI application, internally organized into clear
+service modules (Course, User, Enrollment, Analytics, AI), each following a
+`route → service → repository` pattern over a shared PostgreSQL database. The
+event-driven infrastructure below is deliberately microservices-friendly, so individual
+modules can be extracted into standalone services later if scale or team structure
+requires it.
 
-1. **API Gateway:** FastAPI-based REST API layer
-2. **Core Services:** Course, User, Enrollment, Analytics services
-3. **AI Service:** LangGraph-based AI assistant
+> **Status note (unverified against target end-state):** the current implementation is a
+> modular monolith. It is *not* yet a true microservices deployment (which would require
+> per-service databases, independently deployable apps, and network/event-based
+> communication instead of in-process calls). This appendix describes the intended
+> component breakdown, not a claim that services are independently deployed today.
+
+**Components:**
+
+1. **API layer:** FastAPI-based REST API (single app today; splittable per module later)
+2. **Core service modules:** Course, User, Enrollment, Analytics
+3. **AI service module:** LangGraph-based AI assistant
 4. **Workflow Engine:** Temporal for orchestration
-5. **Event Bus:** Kafka for event streaming
+5. **Event Bus:** Kafka for event streaming (the seam for future service extraction)
 6. **Data Layer:** PostgreSQL, NoSQL, Redis, Vector DB
 7. **Background Workers:** Celery for async processing
 8. **Observability:** Prometheus, Grafana, Jaeger, OpenTelemetry

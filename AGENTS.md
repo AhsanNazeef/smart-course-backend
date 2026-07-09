@@ -18,8 +18,9 @@ SmartCourse is an intelligent, large-scale learning platform for universities, e
 ## Quick Reference
 
 ### Key Documents
-- **Project Requirements:** `project-requirements.md` - Original project specification
-- **PRD:** `PRD.md` - Detailed Product Requirements Document
+- **Project Requirements:** `docs/product/requirements.md` - Original project specification
+- **PRD:** `docs/product/prd.md` - Detailed Product Requirements Document
+- **Docs index:** `docs/README.md` - All project documentation
 - **AGENTS.md:** This file - Agent working guidelines
 
 ### Technology Stack
@@ -40,10 +41,19 @@ SmartCourse is an intelligent, large-scale learning platform for universities, e
 
 ## Architecture Overview
 
-### Microservices Architecture
-The platform follows a microservices architecture with clear separation of concerns:
+### Modular Monolith (Microservices-Ready)
+The platform is a **modular monolith**: one deployable FastAPI application, internally
+split into service modules with clear separation of concerns (each module follows a
+`route → service → repository` pattern). It is **not** a true microservices deployment
+today — the modules share one PostgreSQL database and communicate via in-process calls,
+not the network. The structure and event-driven infrastructure are deliberately
+**microservices-ready**, so a module can be extracted into a standalone service later if
+a real scaling or team-structure need arises.
 
-**Core Services:**
+> Treat the "Service" names below as **modules within one app**, not independently
+> deployed services.
+
+**Core Service Modules:**
 - **Course Service:** Course creation, management, publishing
 - **User Service:** Authentication, authorization, user management
 - **Enrollment Service:** Enrollment handling, progress tracking
@@ -580,7 +590,7 @@ For every new feature, service, workflow, database model, migration, queue, even
 
 This project is designed to help you gain practical experience with:
 
-- **Software Architecture:** Microservices, event-driven design, CQRS
+- **Software Architecture:** Modular monolith (microservices-ready), event-driven design, CQRS
 - **Design Principles:** SOLID principles, design patterns
 - **Workflow Orchestration:** Temporal for complex workflows
 - **Distributed Systems:** Event streaming, message queues
@@ -598,8 +608,8 @@ The objective is not only to complete the milestones but also to deeply understa
 
 When starting work on this project:
 
-1. **Read the PRD** (`PRD.md`) - Understand requirements and use cases
-2. **Review the architecture** - Understand the microservices design
+1. **Read the PRD** (`docs/product/prd.md`) - Understand requirements and use cases
+2. **Review the architecture** - Understand the modular-monolith (microservices-ready) design
 3. **Set up local environment** - Docker Compose for all dependencies
 4. **Review existing code** - Understand code patterns and conventions
 5. **Run tests** - Ensure test suite passes
