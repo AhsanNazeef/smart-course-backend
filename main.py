@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from prometheus_client import make_asgi_app
 from shared.config.settings import settings
+from services.user_service.router import router as user_router
 import logging
 
 # Configure logging
@@ -44,6 +45,9 @@ app.add_middleware(
 )
 
 app.mount("/metrics", make_asgi_app())
+
+# Domain routers
+app.include_router(user_router)
 
 
 # Health check endpoint
