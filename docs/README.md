@@ -39,6 +39,7 @@ Beginner-friendly, file-by-file walkthroughs of what was built each day.
 | [guides/day-02-file-by-file.md](guides/day-02-file-by-file.md) | Every Day 2 file explained (tests & config validation) |
 | [guides/day-03-file-by-file.md](guides/day-03-file-by-file.md) | Every Day 3 change explained (migrations & constraints) |
 | [guides/day-04-file-by-file.md](guides/day-04-file-by-file.md) | Every Day 4 file explained (repository & service layers) |
+| [guides/day-05-file-by-file.md](guides/day-05-file-by-file.md) | Every Day 5 change explained (User service extraction, DB-per-service) |
 
 ## 🔧 Reference
 
@@ -67,7 +68,8 @@ docs/
 │   ├── day-01-file-by-file.md
 │   ├── day-02-file-by-file.md
 │   ├── day-03-file-by-file.md
-│   └── day-04-file-by-file.md
+│   ├── day-04-file-by-file.md
+│   └── day-05-file-by-file.md
 └── reference/             # operational reference
     └── configuration.md
 ```

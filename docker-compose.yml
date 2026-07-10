@@ -17,6 +17,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # User Service Database (database-per-service: owned only by user_service)
+  user-postgres:
+    image: postgres:15-alpine
+    container_name: smartcourse-user-postgres
+    environment:
+      POSTGRES_USER: user_service
+      POSTGRES_PASSWORD: user_service_password
+      POSTGRES_DB: users_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - user_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis Cache
   redis:
     image: redis:7-alpine
@@ -184,6 +202,7 @@ services:
 
 volumes:
   postgres_data:
+  user_postgres_data:
   redis_data:
   rabbitmq_data:
   zookeeper_data:

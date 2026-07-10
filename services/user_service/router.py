@@ -7,12 +7,12 @@ queries and no business rules live here.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from shared.config.settings import settings
 from shared.schemas.user import UserRead
+from services.user_service.config import settings
 from services.user_service.dependencies import get_user_service
 from services.user_service.service import UserService, UserNotFoundError
 
-router = APIRouter(prefix=f"{settings.API_V1_PREFIX}/users", tags=["users"])
+router = APIRouter(prefix=f"{settings.API_PREFIX}/users", tags=["users"])
 
 
 @router.get("", response_model=list[UserRead])

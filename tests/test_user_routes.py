@@ -4,13 +4,17 @@ These prove the ROUTE layer (status codes, response shape, error mapping)
 WITHOUT a database, by overriding the get_user_service dependency with a
 fake. This demonstrates why dependency injection matters: we can swap any
 layer for a test double.
+
+Since the User service is now its own app, these tests target
+services.user_service.main:app (not the monolith).
 """
 
 from datetime import datetime, timezone
 
 import pytest
+from fastapi.testclient import TestClient
 
-from main import app
+from services.user_service.main import app
 from shared.models.user import UserRole
 from services.user_service.dependencies import get_user_service
 from services.user_service.service import UserNotFoundError
@@ -43,6 +47,13 @@ class FakeUserService:
 
     async def list_users(self, limit: int = 50, offset: int = 0):
         return list(self._users.values())
+
+
+@pytest.fixture
+def client():
+    """Test client for the User service app (overrides the monolith client)."""
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture(autouse=True)

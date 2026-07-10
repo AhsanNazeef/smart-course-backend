@@ -12,7 +12,7 @@ link in the chain (e.g. swap in a fake service) without a real database.
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.utils.database import get_db
+from services.user_service.database import get_db
 from services.user_service.repository import UserRepository
 from services.user_service.service import UserService
 

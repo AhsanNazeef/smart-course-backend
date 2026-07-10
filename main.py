@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from prometheus_client import make_asgi_app
 from shared.config.settings import settings
-from services.user_service.router import router as user_router
 import logging
 
 # Configure logging
@@ -46,8 +45,10 @@ app.add_middleware(
 
 app.mount("/metrics", make_asgi_app())
 
-# Domain routers
-app.include_router(user_router)
+# NOTE: The user domain has been extracted into its own service
+# (services/user_service). It is no longer served by this app; run it with:
+#   uvicorn services.user_service.main:app --port 8001
+# Remaining domains will be extracted the same way (see ADR-001).
 
 
 # Health check endpoint
